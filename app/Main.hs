@@ -8,6 +8,8 @@ import           Control.Monad.State.Lazy
 import           Data.List                (isSuffixOf)
 import           Data.Text.Lazy           (Text)
 import qualified Data.Text.Lazy           as T
+import           Data.Text.Lazy.Builder   (Builder)
+import qualified Data.Text.Lazy.Builder   as T
 import qualified Data.Text.Lazy.IO        as T
 import           System.Directory
 import           System.Environment       (getArgs)
@@ -35,8 +37,8 @@ main = do
             Left err -> print err
             Right ast -> do
               let commands = flip evalState (Model 0 (dropvm path)) . generate $ ast
-                  out = T.unpack $ T.concat commands
-              writeFile (vm2asm path) out
+                  out = T.toLazyText $ mconcat commands
+              T.writeFile (vm2asm path) out
         else putStrLn "Error - source file does not exist."
     _  -> putStrLn "Error - too many command line arguments."
 
@@ -49,5 +51,5 @@ withExt ext base
 vm2asm :: FilePath -> FilePath
 vm2asm = reverse . ("msa" ++) . drop 2 . reverse . withExt "vm"
 
-dropvm :: FilePath -> Text
-dropvm = T.pack . reverse . takeWhile (/= '/') . drop 3 . reverse
+dropvm :: FilePath -> Builder
+dropvm = T.fromString . reverse . takeWhile (/= '/') . drop 3 . reverse

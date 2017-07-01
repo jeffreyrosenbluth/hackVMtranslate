@@ -6,6 +6,8 @@ import           Control.Monad.State.Lazy
 import           Data.Monoid
 import           Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as T
+import           Data.Text.Lazy.Builder (Builder)
+import qualified Data.Text.Lazy.Builder as T
 import           Data.Word
 import           TextShow
 
@@ -13,10 +15,10 @@ import           Syntax
 
 data Model = Model
   { labelID :: Word16
-  , moduleName :: Text
+  , moduleName :: Builder
   } deriving Show
 
-type Generator = State Model Text
+type Generator = State Model Builder
 
 incLabelID  :: State Model ()
 incLabelID = modify (\model -> model {labelID = labelID model + 1})
@@ -27,7 +29,7 @@ showReg :: Reg -> Text
 showReg A = "A"
 showReg D = "D"
 
-generate :: [Command] -> State Model [Text]
+generate :: [Command] -> State Model [Builder]
 generate = traverse go
   where
     go (CMemory (Push s i)) = push s i
@@ -42,68 +44,68 @@ generate = traverse go
     go (CArithmetic Or)     = binop "|"
     go (CArithmetic Not)    = unary "!"
 
-binop :: Text -> Generator
+binop :: Builder -> Generator
 binop op = pure $ "@SP\nAM=M-1\nD=M\nA=A-1\nM=M" <> op <> "D\n"
 
-unary :: Text -> Generator
+unary :: Builder -> Generator
 unary op = pure $ "@SP\nA=M-1\nM=" <> op <> "M\n"
 
-comp :: Text -> Generator
+comp :: Builder -> Generator
 comp jmp = do
   incLabelID
   tr <- gets labelID
   incLabelID
   cont <- gets labelID
-  pure $ "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@LABEL." <> showtl tr <> "\n"
+  pure $ "@SP\nAM=M-1\nD=M\nA=A-1\nD=M-D\n@LABEL." <> showb tr <> "\n"
       <> "D;" <> jmp <> "\n"
-      <> "@SP\nA=M-1\nM=0\n@LABEL." <> showtl cont <> "\n"
-      <> "0;JMP\n(LABEL." <> showtl tr <> ")\n"
-      <> "@SP\nA=M-1\nM=-1\n(LABEL." <> showtl cont <> ")\n"
+      <> "@SP\nA=M-1\nM=0\n@LABEL." <> showb cont <> "\n"
+      <> "0;JMP\n(LABEL." <> showb tr <> ")\n"
+      <> "@SP\nA=M-1\nM=-1\n(LABEL." <> showb cont <> ")\n"
 
 push :: Segment -> Word16 -> Generator
 push seg idx
   | seg == Constant
-      =  pure $ "// Push constant " <> showtl idx <> "\n"
-      <> "@" <> showtl idx
+      =  pure $ "// Push constant " <> showb idx <> "\n"
+      <> "@" <> showb idx
       <> "\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"
   | seg == Temp || seg == Pointer
-      =  pure $ "// Push " <> base seg <> " " <> showtl idx <> "\n"
+      =  pure $ "// Push " <> base seg <> " " <> showb idx <> "\n"
       <> "@" <> base seg
-      <> "\nD=A\n@" <> showtl idx
+      <> "\nD=A\n@" <> showb idx
       <> "\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"
   | seg == Static = do
       name <- gets moduleName
-      let label = name <> "." <> showtl idx
-      pure $ "// Push STATIC "  <> showtl idx <> "\n"
+      let label = name <> "." <> showb idx
+      pure $ "// Push STATIC "  <> showb idx <> "\n"
           <> "@" <> label
           <> "\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"
   | otherwise
-      =  pure $ "// Push " <> base seg <> " " <> showtl idx <> "\n"
+      =  pure $ "// Push " <> base seg <> " " <> showb idx <> "\n"
       <> "@" <> base seg
-      <> "\nD=M\n@" <> showtl idx
+      <> "\nD=M\n@" <> showb idx
       <> "\nA=D+A\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"
 
 pop :: Segment -> Word16 -> Generator
 pop seg idx
   | seg == Temp || seg == Pointer
-      = pure $ "// Pop " <> base seg <> " " <> showtl idx <> "\n"
+      = pure $ "// Pop " <> base seg <> " " <> showb idx <> "\n"
       <>  "@" <> base seg
-      <> "\nD=A\n@" <> showtl idx <> "\nD=D+A\n"
+      <> "\nD=A\n@" <> showb idx <> "\nD=D+A\n"
       <> "@R13\nM=D\n@SP\nAM=M-1\nD=M\n@R13\nA=M\nM=D\n"
   | seg == Static = do
       name <- gets moduleName
-      let label = name <> "." <> showtl idx
-      pure $ "// Pop STATIC " <> showtl idx <> "\n"
+      let label = name <> "." <> showb idx
+      pure $ "// Pop STATIC " <> showb idx <> "\n"
         <>  "@" <> label
         <> "\nD=A\n"
         <> "@R13\nM=D\n@SP\nAM=M-1\nD=M\n@R13\nA=M\nM=D\n"
   | otherwise
-      =  pure $ "// Pop " <> base seg <> " " <> showtl idx <> "\n"
+      =  pure $ "// Pop " <> base seg <> " " <> showb idx <> "\n"
       <>  "@" <> base seg
-      <> "\nD=M\n@" <> showtl idx <> "\nD=D+A\n"
+      <> "\nD=M\n@" <> showb idx <> "\nD=D+A\n"
       <> "@R13\nM=D\n@SP\nAM=M-1\nD=M\n@R13\nA=M\nM=D\n"
 
-base :: Segment -> Text
+base :: Segment -> Builder
 base Argument = "ARG"
 base Local    = "LCL"
 base Static   = error "Static segments do not have a base."
