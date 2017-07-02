@@ -34,8 +34,8 @@ executable translate
                      , hackVMtranslate
                      , megaparsec >= 5.0 && < 5.3
                      , text >= 1.2 && < 1.3
-                     , directory >= 1.3 && < 1.4
                      , mtl >= 2.2 && < 2.3
+                     , filemanip >= 0.3 && < 0.4
   default-language:    Haskell2010
 
 test-suite hackVMtranslate-test

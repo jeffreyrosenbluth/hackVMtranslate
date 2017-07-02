@@ -6,12 +6,10 @@ module Main where
 import           Control.Monad            (void)
 import           Control.Monad.State.Lazy
 import           Data.List                (isSuffixOf)
-import           Data.Text.Lazy           (Text)
-import qualified Data.Text.Lazy           as T
 import           Data.Text.Lazy.Builder   (Builder)
 import qualified Data.Text.Lazy.Builder   as T
 import qualified Data.Text.Lazy.IO        as T
-import           System.Directory
+import           System.FilePath.Find
 import           System.Environment       (getArgs)
 import           Text.Megaparsec
 import           Text.Printf
@@ -21,35 +19,39 @@ import           Lexer
 import           Parser
 import           Syntax
 
+processFile :: FilePath -> IO (Builder)
+processFile path = do
+  src <- T.readFile path
+  case parse parseProgram "<stdin>" src of
+    Left err  -> error $ "Unable to parse source file: " ++ show src
+    Right ast -> pure
+              . mconcat
+              . flip evalState (Model 0 (dropvm path))
+              . generate $ ast
+
 main :: IO ()
 main = do
   args <- getArgs
   case args of
     []     -> putStrLn "Error - no source file specified."
     [path] -> do
-      fileExists <- doesFileExist path
-      dirExists <- doesDirectoryExist path
-      let correctExtension = isSuffixOf ".vm" path
-      if fileExists
-        then do
-          src <- T.readFile path
-          case parse parseProgram "<stdin>" src of
-            Left err -> print err
-            Right ast -> do
-              let commands = flip evalState (Model 0 (dropvm path)) . generate $ ast
-                  out = T.toLazyText $ mconcat commands
-              T.writeFile (vm2asm path) out
-        else putStrLn "Error - source file does not exist."
+      files <- find (depth <? 10) (extension ==? ".vm") path
+      outB <- traverse processFile files
+      let out = T.toLazyText . mconcat $ outB
+      putStrLn path
+      T.writeFile (vm2asm path) out
     _  -> putStrLn "Error - too many command line arguments."
 
--- | Add an extension to a 'FilePath' if it does not alread have one.
-withExt :: FilePath -> FilePath -> FilePath
-withExt ext base
-  | '.' `elem` base = base
-  | otherwise       = base ++ "." ++ ext
-
 vm2asm :: FilePath -> FilePath
-vm2asm = reverse . ("msa" ++) . drop 2 . reverse . withExt "vm"
+vm2asm path = if isSuffixOf ".vm" path
+                then reverse . ("msa" ++) . drop 2 $ reverse path
+                else makeFilename path
 
 dropvm :: FilePath -> Builder
 dropvm = T.fromString . reverse . takeWhile (/= '/') . drop 3 . reverse
+
+makeFilename :: FilePath -> String
+makeFilename path = path ++
+                  ( reverse . ("msa." ++) . takeWhile (/= '/') . drop 1 . reverse
+                  $ path
+                  )
