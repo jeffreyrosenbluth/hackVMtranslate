@@ -4,7 +4,7 @@ module Parser where
 
 import           Data.Text.Lazy            (Text)
 import           Data.Word
-import           Text.Megaparsec
+import           Text.Megaparsec           hiding (Label)
 import           Text.Megaparsec.Text.Lazy (Parser)
 
 import           Lexer
@@ -13,8 +13,8 @@ import           Syntax
 command :: Parser Command
 command = CArithmetic <$> arithmetic
       <|> CMemory <$> memory
-      -- <|> CFlow <$> flow
-      -- <|> CCalling <$> calling
+      <|> CFlow <$> flow
+      <|> CCalling <$> calling
 
 arithmetic :: Parser Arithmetic
 arithmetic = try (Add <$ symbol "add")
@@ -43,10 +43,15 @@ segment = Argument <$ symbol "argument"
 
 
 flow :: Parser Flow
-flow = undefined
+flow = Label <$> (symbol "label" *> identifier)
+   <|> Goto <$> (symbol "goto" *> identifier)
+   <|> IfGoto <$> (symbol "if-goto" *> identifier)
 
 calling :: Parser Calling
-calling = undefined
+calling
+    = Function <$> (symbol "function" *> identifier) <*> (fromInteger <$> integer)
+  <|> Call <$> (symbol "call" *> identifier) <*> (fromInteger <$> integer)
+  <|> Return <$ symbol "retrun"
 
 parseProgram :: Parser [Command]
 parseProgram =contents $ some command

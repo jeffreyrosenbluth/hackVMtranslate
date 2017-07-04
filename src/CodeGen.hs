@@ -43,6 +43,10 @@ generate = traverse go
     go (CArithmetic And)    = binop "&"
     go (CArithmetic Or)     = binop "|"
     go (CArithmetic Not)    = unary "!"
+    go (CFlow (Label l))    = pure $ "(" <> T.fromString l <> ")\n"
+    go (CFlow (Goto l))     = pure $ "@" <> T.fromString l <> "\n" <> "0;JMP\n"
+    go (CFlow (IfGoto l))   = pure $ "@SP\nAM=M-1\nD=M\n@"
+                                  <> T.fromString l <> "\nD;JNE\n"
 
 binop :: Builder -> Generator
 binop op = pure $ "@SP\nAM=M-1\nD=M\nA=A-1\nM=M" <> op <> "D\n"

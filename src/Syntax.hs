@@ -44,7 +44,7 @@ data Flow
   deriving Show
 
 data Calling
-  = Fucntion String Word16
+  = Function String Word16
   | Call String Word16
   | Return
   deriving Show

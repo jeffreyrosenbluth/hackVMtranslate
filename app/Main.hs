@@ -12,7 +12,6 @@ import qualified Data.Text.Lazy.IO        as T
 import           System.FilePath.Find
 import           System.Environment       (getArgs)
 import           Text.Megaparsec
-import           Text.Printf
 
 import           CodeGen
 import           Lexer
@@ -38,7 +37,6 @@ main = do
       files <- find (depth <? 10) (extension ==? ".vm") path
       outB <- traverse processFile files
       let out = T.toLazyText . mconcat $ outB
-      putStrLn path
       T.writeFile (vm2asm path) out
     _  -> putStrLn "Error - too many command line arguments."
 
