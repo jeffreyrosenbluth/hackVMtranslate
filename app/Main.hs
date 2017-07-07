@@ -18,15 +18,18 @@ import           Lexer
 import           Parser
 import           Syntax
 
-processFile :: FilePath -> IO (Builder)
+processFile :: FilePath -> IO Builder
 processFile path = do
   src <- T.readFile path
   case parse parseProgram "<stdin>" src of
     Left err  -> error $ "Unable to parse source file: " ++ show src
     Right ast -> pure
               . mconcat
-              . flip evalState (Model 0 (dropvm path))
+              . flip evalState (Model 0 0 (dropvm path) "")
               . generate $ ast
+
+bootstrp :: Builder
+bootstrp = "" -- "@256\nD=A\n@SP\nM=D\n@Sys.init\n0;JMP\n"
 
 main :: IO ()
 main = do
@@ -36,7 +39,7 @@ main = do
     [path] -> do
       files <- find (depth <? 10) (extension ==? ".vm") path
       outB <- traverse processFile files
-      let out = T.toLazyText . mconcat $ outB
+      let out = T.toLazyText . mconcat $ bootstrp : outB
       T.writeFile (vm2asm path) out
     _  -> putStrLn "Error - too many command line arguments."
 

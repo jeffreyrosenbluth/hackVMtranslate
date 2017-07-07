@@ -51,7 +51,7 @@ calling :: Parser Calling
 calling
     = Function <$> (symbol "function" *> identifier) <*> (fromInteger <$> integer)
   <|> Call <$> (symbol "call" *> identifier) <*> (fromInteger <$> integer)
-  <|> Return <$ symbol "retrun"
+  <|> Return <$ symbol "return"
 
 parseProgram :: Parser [Command]
 parseProgram =contents $ some command
