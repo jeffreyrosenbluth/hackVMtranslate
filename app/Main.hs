@@ -6,6 +6,7 @@ module Main where
 import           Control.Monad            (void)
 import           Control.Monad.State.Lazy
 import           Data.List                (isSuffixOf)
+import           Data.Monoid
 import           Data.Text.Lazy.Builder   (Builder)
 import qualified Data.Text.Lazy.Builder   as T
 import qualified Data.Text.Lazy.IO        as T
@@ -25,11 +26,15 @@ processFile path = do
     Left err  -> error $ "Unable to parse source file: " ++ show src
     Right ast -> pure
               . mconcat
-              . flip evalState (Model 0 0 (dropvm path) "")
+              . flip evalState (Model 0 1 (dropvm path) "")
               . generate $ ast
 
 bootstrp :: Builder
-bootstrp = "" -- "@256\nD=A\n@SP\nM=D\n@Sys.init\n0;JMP\n"
+bootstrp = evalState b (Model 0 0 "" "")
+  where
+    b = do
+      ini <- call "Sys.init" 0
+      pure $ "@256\nD=A\n@SP\nM=D\n" <> ini
 
 main :: IO ()
 main = do

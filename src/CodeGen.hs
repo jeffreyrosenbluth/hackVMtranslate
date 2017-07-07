@@ -153,7 +153,8 @@ call :: String -> Word16 -> Generator
 call s n = do
   incReturnID
   r <- gets returnID
-  let rtn = "RETURN." <> showb r
+  m <- gets moduleName
+  let rtn = "RETURN." <> m <> "." <> showb r
   pure $ "@" <> rtn <> "\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n"
       <> psh "LCL"
       <> psh "ARG"
